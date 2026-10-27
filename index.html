@@ -53,4 +53,678 @@
     .form-group label { display: block; font-size: 0.82rem; font-weight: 600; margin-bottom: 5px; color: var(--text-muted); }
     .input-wrapper { display: flex; align-items: center; gap: 8px; }
     .form-group input, .form-group select { width: 100%; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--card-bg); color: #fff; font-size: 0.9rem; }
-    .form-group input:
+    .form-group input:focus, .form-group select:focus { outline: 2px solid var(--accent-blue); }
+    .unit { font-size: 0.8rem; color: var(--text-muted); min-width: 35px; }
+
+    .preset-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+    .btn-preset { background: var(--card-bg); color: #e2e8f0; border: 1px solid var(--border-color); padding: 6px 10px; border-radius: 6px; font-size: 0.78rem; cursor: pointer; transition: 0.2s; text-align: center; }
+    .btn-preset:hover { background: var(--accent-blue); color: #fff; border-color: var(--accent-blue); }
+
+    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .kpi-card { background: var(--card-bg); padding: 12px; border-radius: 8px; border-left: 4px solid var(--accent-blue); }
+    .kpi-card.alert { border-left-color: var(--danger); }
+    .kpi-card.warning { border-left-color: var(--warning); }
+    .kpi-card.success { border-left-color: var(--success); }
+    .kpi-card .title { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+    .kpi-card .value { font-size: 1.25rem; font-weight: 700; margin-top: 4px; color: #fff; }
+    .kpi-card .subtext { font-size: 0.7rem; color: var(--text-muted); margin-top: 2px; }
+
+    .canvas-container { position: relative; width: 100%; height: 260px; background: #090d16; border-radius: 8px; border: 1px solid var(--border-color); margin-bottom: 20px; overflow: hidden; }
+    canvas { display: block; width: 100%; height: 100%; }
+
+    .chart-container { position: relative; width: 100%; height: 280px; background: var(--card-bg); padding: 10px; border-radius: 8px; margin-bottom: 20px; }
+
+    .recommendation-box { background: rgba(2, 132, 199, 0.1); border: 1px solid var(--accent-blue); padding: 12px; border-radius: 8px; font-size: 0.85rem; line-height: 1.4; color: #e0f2fe; margin-bottom: 15px; }
+    .recommendation-box.danger { background: rgba(239, 68, 68, 0.1); border-color: var(--danger); color: #fecdd3; }
+
+    .action-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+    .btn-action { background: var(--card-bg); color: #fff; border: 1px solid var(--border-color); padding: 10px 16px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; flex: 1; min-width: 140px; text-align: center; transition: 0.2s; }
+    .btn-action:hover { background: var(--accent-blue); border-color: var(--accent-blue); }
+
+    @media print {
+      body { background: #fff; color: #000; padding: 0; }
+      .container { grid-template-columns: 1fr; }
+      .panel-input, .preset-btns, .btn-action, .btn-install { display: none !important; }
+      .panel { border: none; background: #fff; color: #000; }
+      .kpi-card { background: #f1f5f9; color: #000; border: 1px solid #cbd5e1; }
+      .kpi-card .value { color: #000; }
+      .canvas-container { border: 1px solid #000; background: #fff; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  
+  <header>
+    <div>
+      <h1>Simulador Pluvial & Hidráulico de Solera</h1>
+      <p>Modelación hidrológica de escorrentía urbana y capacidad de canales (Motor EPA SWMM / Manning)</p>
+    </div>
+    <button class="btn-install" id="pwaInstallBtn">📲 Instalar App</button>
+  </header>
+
+  <!-- PANEL DE CONTROLES E INSUMOS -->
+  <div class="panel panel-input">
+    <h2>
+      <span>⚙️ Parámetros de Diseño</span>
+    </h2>
+
+    <div style="margin-bottom: 15px;">
+      <label style="font-size: 0.78rem; color: var(--text-muted); display:block; margin-bottom: 5px;">Escenarios Rápidos:</label>
+      <div class="preset-btns">
+        <button class="btn-preset" onclick="loadPreset('zanjon')">Zanjón Crítico</button>
+        <button class="btn-preset" onclick="loadPreset('urbano')">Canal Urbano</button>
+        <button class="btn-preset" onclick="loadPreset('tierra')">Canal de Tierra</button>
+        <button class="btn-preset" onclick="loadPreset('temporal')">Temporal Mayor</button>
+      </div>
+    </div>
+
+    <!-- GEOMETRÍA DEL CANAL -->
+    <h3 style="font-size: 0.85rem; color: #38bdf8; margin: 10px 0 8px 0;">Geometría de la Sección</h3>
+    
+    <div class="form-group">
+      <label for="solera">Ancho de Solera (b):</label>
+      <div class="input-wrapper">
+        <input type="number" id="solera" value="1.50" step="0.10" min="0.20">
+        <span class="unit">m</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="talud">Talud lateral (z = H:1V):</label>
+      <div class="input-wrapper">
+        <input type="number" id="talud" value="1.0" step="0.1" min="0">
+        <span class="unit">m/m</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="profundidad">Altura Total del Canal (H_max):</label>
+      <div class="input-wrapper">
+        <input type="number" id="profundidad" value="1.20" step="0.10" min="0.3">
+        <span class="unit">m</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="pendiente">Pendiente Longitudinal (S0):</label>
+      <div class="input-wrapper">
+        <input type="number" id="pendiente" value="0.0015" step="0.0005" min="0.0001">
+        <span class="unit">m/m</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="manning">Rugosidad de Manning (n):</label>
+      <div class="input-wrapper">
+        <select id="manning">
+          <option value="0.015">Hormigón liso (0.015)</option>
+          <option value="0.022" selected>Tierra / Desmalezado regular (0.022)</option>
+          <option value="0.035">Zanjón natural con vegetación (0.035)</option>
+          <option value="0.050">Canal obstruido / Sin mantenimiento (0.050)</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- HIDROLOGÍA Y TORMENTA -->
+    <h3 style="font-size: 0.85rem; color: #38bdf8; margin: 15px 0 8px 0;">Hidrología & Tormenta</h3>
+
+    <div class="form-group">
+      <label for="area">Área de la Cuenca (A):</label>
+      <div class="input-wrapper">
+        <input type="number" id="area" value="25" step="5" min="1">
+        <span class="unit">ha</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="impermeable">Impermeabilidad del Suelo:</label>
+      <div class="input-wrapper">
+        <input type="number" id="impermeable" value="65" step="5" min="0" max="100">
+        <span class="unit">%</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="lluvia">Intensidad de Lluvia Pico (I):</label>
+      <div class="input-wrapper">
+        <input type="number" id="lluvia" value="75" step="5" min="10">
+        <span class="unit">mm/h</span>
+      </div>
+    </div>
+
+    <div class="form-group">
+      <label for="infiltracion">Tipo de Suelo (Horton):</label>
+      <div class="input-wrapper">
+        <select id="infiltracion">
+          <option value="arenoso">Suelo Arenoso (Infiltración Alta)</option>
+          <option value="limoso" selected>Suelo Limoso / Urbano (Infiltración Media)</option>
+          <option value="arcilloso">Suelo Arcilloso / Saturado (Infiltración Baja)</option>
+        </select>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- PANEL DE RESULTADOS Y SIMULACIÓN -->
+  <div class="panel">
+    <h2>
+      <span>📊 Diagnóstico Hidráulico en Tiempo Real</span>
+      <span id="statusBadge" style="font-size:0.75rem; padding: 4px 10px; border-radius:12px; background: var(--success); color:#fff;">NORMAL</span>
+    </h2>
+
+    <!-- KPIs RESULTADOS -->
+    <div class="kpi-grid">
+      <div class="kpi-card" id="cardQp">
+        <div class="title">Caudal Afluente (Q_p)</div>
+        <div class="value" id="kpiQp">0.00 m³/s</div>
+        <div class="subtext">Escorrentía urbana pico</div>
+      </div>
+
+      <div class="kpi-card" id="cardQmax">
+        <div class="title">Capacidad Canal (Q_max)</div>
+        <div class="value" id="kpiQmax">0.00 m³/s</div>
+        <div class="subtext">Límite a sección llena</div>
+      </div>
+
+      <div class="kpi-card" id="cardTirante">
+        <div class="title">Tirante de Agua (y)</div>
+        <div class="value" id="kpiTirante">0.00 m</div>
+        <div class="subtext" id="kpiBordeLibre">Borde libre: 0.00 m</div>
+      </div>
+
+      <div class="kpi-card" id="cardVelocidad">
+        <div class="title">Velocidad del Flujo</div>
+        <div class="value" id="kpiVelocidad">0.00 m/s</div>
+        <div class="subtext" id="kpiErosion">Riesgo de erosión: Bajo</div>
+      </div>
+    </div>
+
+    <!-- CORTE TRANSVERSAL ANIMADO (CANVAS) -->
+    <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">Corte Transversal del Zanjón / Canal (Vista en Solera b)</h3>
+    <div class="canvas-container">
+      <canvas id="channelCanvas"></canvas>
+    </div>
+
+    <!-- RECOMENDACIÓN TÉCNICA -->
+    <div class="recommendation-box" id="recommendationBox">
+      Cargando diagnóstico hidráulico...
+    </div>
+
+    <!-- HIDROGRAMA DE SIMULACIÓN -->
+    <h3 style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 8px;">Hidrograma de Escorrentía vs Capacidad Límite</h3>
+    <div class="chart-container">
+      <canvas id="hydrographChart"></canvas>
+    </div>
+
+    <!-- BOTONES DE ACCIÓN Y EXPORTACIÓN -->
+    <div class="action-btns">
+      <button class="btn-action" onclick="exportarCSV()">📥 Exportar Datos CSV</button>
+      <button class="btn-action" onclick="window.print()">🖨️ Imprimir / PDF</button>
+    </div>
+
+  </div>
+
+</div>
+
+<script>
+  let hydroChart = null;
+
+  // Parámetros de Infiltración (Modelo de Horton)
+  const hortonParams = {
+    arenoso: { f0: 76, fc: 13, k: 4.14 },
+    limoso:  { f0: 38, fc: 6,  k: 2.50 },
+    arcilloso:{ f0: 15, fc: 2,  k: 1.20 }
+  };
+
+  // Presets
+  function loadPreset(key) {
+    if(key === 'zanjon') {
+      document.getElementById('solera').value = "1.00";
+      document.getElementById('talud').value = "1.5";
+      document.getElementById('profundidad').value = "1.00";
+      document.getElementById('pendiente').value = "0.0010";
+      document.getElementById('manning').value = "0.035";
+      document.getElementById('area').value = "35";
+      document.getElementById('impermeable').value = "60";
+      document.getElementById('lluvia').value = "80";
+    } else if(key === 'urbano') {
+      document.getElementById('solera').value = "2.00";
+      document.getElementById('talud').value = "0.5";
+      document.getElementById('profundidad').value = "1.50";
+      document.getElementById('pendiente').value = "0.0020";
+      document.getElementById('manning').value = "0.015";
+      document.getElementById('area').value = "40";
+      document.getElementById('impermeable').value = "80";
+      document.getElementById('lluvia').value = "70";
+    } else if(key === 'tierra') {
+      document.getElementById('solera').value = "1.20";
+      document.getElementById('talud').value = "1.0";
+      document.getElementById('profundidad').value = "1.20";
+      document.getElementById('pendiente').value = "0.0012";
+      document.getElementById('manning').value = "0.022";
+      document.getElementById('area').value = "20";
+      document.getElementById('impermeable').value = "45";
+      document.getElementById('lluvia').value = "60";
+    } else if(key === 'temporal') {
+      document.getElementById('solera').value = "1.50";
+      document.getElementById('talud').value = "1.0";
+      document.getElementById('profundidad').value = "1.20";
+      document.getElementById('pendiente').value = "0.0010";
+      document.getElementById('manning').value = "0.022";
+      document.getElementById('area').value = "55";
+      document.getElementById('impermeable').value = "70";
+      document.getElementById('lluvia').value = "110";
+    }
+    calcular();
+  }
+
+  // Ecuación de Manning para Sección Trapezoidal
+  function calcularManning(b, z, y, S0, n) {
+    const A = (b + z * y) * y;
+    const P = b + 2 * y * Math.sqrt(1 + z * z);
+    const R = P > 0 ? A / P : 0;
+    const Q = (1 / n) * A * Math.pow(R, 2/3) * Math.sqrt(S0);
+    const V = A > 0 ? Q / A : 0;
+    return { A, P, R, Q, V };
+  }
+
+  // Resolver Tirante y por Bisección dado un Caudal Q_req
+  function resolverTirante(b, z, S0, n, Q_req, H_max) {
+    let y_low = 0.001;
+    let y_high = H_max * 2.5;
+    let y_mid = y_low;
+    
+    for (let i = 0; i < 40; i++) {
+      y_mid = (y_low + y_high) / 2;
+      const res = calcularManning(b, z, y_mid, S0, n);
+      if (Math.abs(res.Q - Q_req) < 0.001) break;
+      if (res.Q < Q_req) y_low = y_mid;
+      else y_high = y_mid;
+    }
+    return y_mid;
+  }
+
+  // CÁLCULO GENERAL
+  function calcular() {
+    const b = parseFloat(document.getElementById('solera').value) || 1.0;
+    const z = parseFloat(document.getElementById('talud').value) || 0;
+    const H_max = parseFloat(document.getElementById('profundidad').value) || 1.0;
+    const S0 = parseFloat(document.getElementById('pendiente').value) || 0.001;
+    const n = parseFloat(document.getElementById('manning').value) || 0.022;
+
+    const A_cuenca_ha = parseFloat(document.getElementById('area').value) || 10;
+    const imp_pct = parseFloat(document.getElementById('impermeable').value) || 50;
+    const I_pico = parseFloat(document.getElementById('lluvia').value) || 50;
+    const tipoSuelo = document.getElementById('infiltracion').value;
+
+    const C_run = (imp_pct / 100) * 0.90 + ((100 - imp_pct) / 100) * 0.25;
+
+    // Caudal Pico Afluente
+    const Q_pico = (C_run * I_pico * A_cuenca_ha) / 360;
+
+    // Capacidad Máxima del Canal
+    const capMax = calcularManning(b, z, H_max, S0, n);
+    const Q_max = capMax.Q;
+
+    // Tirante Real Alcanzado
+    const y_real = resolverTirante(b, z, S0, n, Q_pico, H_max);
+    const estadoHidraulico = calcularManning(b, z, y_real, S0, n);
+
+    const bordeLibre = H_max - y_real;
+    const esDesborde = y_real > H_max;
+
+    // Actualizar KPIs
+    document.getElementById('kpiQp').innerText = `${Q_pico.toFixed(2)} m³/s`;
+    document.getElementById('kpiQmax').innerText = `${Q_max.toFixed(2)} m³/s`;
+    document.getElementById('kpiTirante').innerText = `${y_real.toFixed(2)} m`;
+    document.getElementById('kpiVelocidad').innerText = `${estadoHidraulico.V.toFixed(2)} m/s`;
+
+    // Estados Visuales KPI
+    const badge = document.getElementById('statusBadge');
+    const recBox = document.getElementById('recommendationBox');
+
+    if (esDesborde) {
+      badge.innerText = "ALERTA: DESBORDE";
+      badge.style.background = "var(--danger)";
+      document.getElementById('cardTirante').className = "kpi-card alert";
+      document.getElementById('kpiBordeLibre').innerText = `Déficit de altura: ${Math.abs(bordeLibre).toFixed(2)} m`;
+      
+      let b_req = b;
+      while (b_req < 10) {
+        b_req += 0.1;
+        if (calcularManning(b_req, z, H_max, S0, n).Q >= Q_pico) break;
+      }
+
+      recBox.className = "recommendation-box danger";
+      recBox.innerHTML = `⚠️ <strong>RIESGO DE INUNDACIÓN URBANA:</strong> El caudal de escorrentía pico (<strong>${Q_pico.toFixed(2)} m³/s</strong>) supera la capacidad del canal en un <strong>${(((Q_pico - Q_max)/Q_max)*100).toFixed(0)}%</strong>.<br>
+      👉 <strong>Recomendación Técnica:</strong> Para evitar el colapso sin modificar la profundidad, se requiere ampliar el <strong>Ancho de Solera (b) de ${b.toFixed(2)} m a al menos ${b_req.toFixed(2)} m</strong>.`;
+    } else if (bordeLibre < 0.20) {
+      badge.innerText = "PRECAUCIÓN";
+      badge.style.background = "var(--warning)";
+      document.getElementById('cardTirante').className = "kpi-card warning";
+      document.getElementById('kpiBordeLibre').innerText = `Borde libre escaso: ${bordeLibre.toFixed(2)} m`;
+
+      recBox.className = "recommendation-box";
+      recBox.style.borderColor = "var(--warning)";
+      recBox.style.background = "rgba(245, 158, 11, 0.1)";
+      recBox.style.color = "#fef08a";
+      recBox.innerHTML = `⚠️ <strong>CAPACIDAD AL LÍMITE:</strong> El canal contiene la tormenta pero con un borde libre de solo <strong>${bordeLibre.toFixed(2)} m</strong> (mínimo recomendado: 0.20 - 0.30 m). Se aconseja un leve ensanche de solera a <strong>${(b + 0.3).toFixed(2)} m</strong> para mayor margen de seguridad.`;
+    } else {
+      badge.innerText = "ESTABLE";
+      badge.style.background = "var(--success)";
+      document.getElementById('cardTirante').className = "kpi-card success";
+      document.getElementById('kpiBordeLibre').innerText = `Borde libre seguro: ${bordeLibre.toFixed(2)} m`;
+
+      recBox.className = "recommendation-box";
+      recBox.style.borderColor = "var(--accent-blue)";
+      recBox.style.background = "rgba(2, 132, 199, 0.1)";
+      recBox.style.color = "#e0f2fe";
+      recBox.innerHTML = `✅ <strong>DISEÑO HIDRÁULICO ADECUADO:</strong> El ancho de solera actual (b = ${b.toFixed(2)} m) y la sección transversal conducen de forma segura el caudal pico proyectado con una velocidad de <strong>${estadoHidraulico.V.toFixed(2)} m/s</strong>.`;
+    }
+
+    const kpiEro = document.getElementById('kpiErosion');
+    if(estadoHidraulico.V > 2.5) {
+      kpiEro.innerText = "Riesgo: Alto (Req. Revestimiento)";
+      kpiEro.style.color = "#f87171";
+    } else if(estadoHidraulico.V < 0.6) {
+      kpiEro.innerText = "Riesgo: Sedimentación / Poca autolimpieza";
+      kpiEro.style.color = "#fbbf24";
+    } else {
+      kpiEro.innerText = "Velocidad óptima de diseño";
+      kpiEro.style.color = "#4ade80";
+    }
+
+    dibujarCanal(b, z, H_max, y_real);
+    actualizarGrafico(I_pico, Q_pico, Q_max, tipoSuelo, C_run);
+  }
+
+  // DIBUJO 2D CANVAS
+  function dibujarCanal(b, z, H_max, y_real) {
+    const canvas = document.getElementById('channelCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const rect = canvas.getBoundingClientRect();
+    canvas.width = rect.width * window.devicePixelRatio;
+    canvas.height = rect.height * window.devicePixelRatio;
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+    const w = rect.width;
+    const h = rect.height;
+
+    ctx.clearRect(0, 0, w, h);
+
+    const B_top = b + 2 * z * H_max;
+    const marginX = 60;
+    const scaleX = (w - 2 * marginX) / Math.max(B_top * 1.3, 3.0);
+    const scaleY = (h - 80) / (H_max * 1.4);
+
+    const cx = w / 2;
+    const bottomY = h - 40;
+    const topY = bottomY - H_max * scaleY;
+
+    const x_solera_left = cx - (b / 2) * scaleX;
+    const x_solera_right = cx + (b / 2) * scaleX;
+    const x_top_left = cx - (B_top / 2) * scaleX;
+    const x_top_right = cx + (B_top / 2) * scaleX;
+
+    // Suelo
+    ctx.fillStyle = "#1e293b";
+    ctx.beginPath();
+    ctx.moveTo(0, topY);
+    ctx.lineTo(x_top_left, topY);
+    ctx.lineTo(x_solera_left, bottomY);
+    ctx.lineTo(x_solera_right, bottomY);
+    ctx.lineTo(x_top_right, topY);
+    ctx.lineTo(w, topY);
+    ctx.lineTo(w, h);
+    ctx.lineTo(0, h);
+    ctx.closePath();
+    ctx.fill();
+
+    // Bordes
+    ctx.strokeStyle = "#94a3b8";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(x_top_left - 20, topY);
+    ctx.lineTo(x_top_left, topY);
+    ctx.lineTo(x_solera_left, bottomY);
+    ctx.lineTo(x_solera_right, bottomY);
+    ctx.lineTo(x_top_right, topY);
+    ctx.lineTo(x_top_right + 20, topY);
+    ctx.stroke();
+
+    // Agua
+    const y_water_clamped = Math.min(y_real, H_max * 1.25);
+    const y_water_level = bottomY - y_water_clamped * scaleY;
+
+    const b_water = b + 2 * z * y_water_clamped;
+    const x_w_left = cx - (b_water / 2) * scaleX;
+    const x_w_right = cx + (b_water / 2) * scaleX;
+
+    const waterGradient = ctx.createLinearGradient(0, y_water_level, 0, bottomY);
+    if(y_real > H_max) {
+      waterGradient.addColorStop(0, "rgba(239, 68, 68, 0.8)");
+      waterGradient.addColorStop(1, "rgba(185, 28, 28, 0.6)");
+    } else {
+      waterGradient.addColorStop(0, "rgba(2, 132, 199, 0.85)");
+      waterGradient.addColorStop(1, "rgba(14, 116, 144, 0.6)");
+    }
+
+    ctx.fillStyle = waterGradient;
+    ctx.beginPath();
+    ctx.moveTo(x_solera_left, bottomY);
+    ctx.lineTo(x_solera_right, bottomY);
+    ctx.lineTo(x_w_right, y_water_level);
+    ctx.lineTo(x_w_left, y_water_level);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.strokeStyle = y_real > H_max ? "#fca5a5" : "#38bdf8";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(x_w_left, y_water_level);
+    ctx.lineTo(x_w_right, y_water_level);
+    ctx.stroke();
+
+    // Textos y Cotas
+    ctx.fillStyle = "#f8fafc";
+    ctx.font = "12px sans-serif";
+    ctx.textAlign = "center";
+
+    ctx.strokeStyle = "#f59e0b";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(x_solera_left, bottomY + 15);
+    ctx.lineTo(x_solera_right, bottomY + 15);
+    ctx.stroke();
+    ctx.fillStyle = "#f59e0b";
+    ctx.fillText(`Solera b = ${b.toFixed(2)} m`, cx, bottomY + 30);
+
+    ctx.fillStyle = y_real > H_max ? "#f87171" : "#38bdf8";
+    ctx.fillText(`y = ${y_real.toFixed(2)} m`, cx, y_water_level + 20);
+
+    if(y_real > H_max) {
+      ctx.fillStyle = "#ef4444";
+      ctx.font = "bold 14px sans-serif";
+      ctx.fillText("⚠️ DESBORDE", cx, topY - 15);
+    }
+  }
+
+  // GRÁFICO CHART.JS
+  function actualizarGrafico(I_pico, Q_pico, Q_max, tipoSuelo, C_run) {
+    const timeSteps = [];
+    const lluviaData = [];
+    const escorrentiaData = [];
+    const capMaxData = [];
+
+    const duracionMinutos = 120;
+    const dt = 5;
+
+    const hp = hortonParams[tipoSuelo] || hortonParams.limoso;
+
+    for (let t = 0; t <= duracionMinutos; t += dt) {
+      timeSteps.push(`${t} min`);
+      
+      let intens = 0;
+      if (t >= 30 && t <= 90) {
+        const factor = 1 - Math.pow((t - 60) / 30, 2);
+        intens = I_pico * Math.max(0, factor);
+      } else {
+        intens = I_pico * 0.1;
+      }
+      lluviaData.push(parseFloat(intens.toFixed(1)));
+
+      const f_horton = hp.fc + (hp.f0 - hp.fc) * Math.exp(-hp.k * (t / 60));
+      const lluviaEfectiva = Math.max(0, intens - f_horton * (1 - C_run));
+
+      const Q_t = (lluviaEfectiva / I_pico) * Q_pico;
+      escorrentiaData.push(parseFloat(Q_t.toFixed(2)));
+      capMaxData.push(parseFloat(Q_max.toFixed(2)));
+    }
+
+    const ctxChart = document.getElementById('hydrographChart').getContext('2d');
+
+    if (hydroChart) hydroChart.destroy();
+
+    hydroChart = new Chart(ctxChart, {
+      type: 'line',
+      data: {
+        labels: timeSteps,
+        datasets: [
+          {
+            label: 'Escorrentía Afluente (m³/s)',
+            data: escorrentiaData,
+            borderColor: '#0284c7',
+            backgroundColor: 'rgba(2, 132, 199, 0.2)',
+            fill: true,
+            tension: 0.4,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Capacidad Máxima Canal (m³/s)',
+            data: capMaxData,
+            borderColor: '#ef4444',
+            borderDash: [6, 6],
+            borderWidth: 2,
+            pointRadius: 0,
+            fill: false,
+            yAxisID: 'y'
+          },
+          {
+            label: 'Intensidad Lluvia (mm/h)',
+            data: lluviaData,
+            borderColor: '#38bdf8',
+            backgroundColor: 'rgba(56, 189, 248, 0.3)',
+            type: 'bar',
+            yAxisID: 'y1'
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        scales: {
+          x: {
+            ticks: { color: '#94a3b8' },
+            grid: { color: '#334155' }
+          },
+          y: {
+            type: 'linear',
+            position: 'left',
+            title: { display: true, text: 'Caudal (m³/s)', color: '#0284c7' },
+            ticks: { color: '#94a3b8' },
+            grid: { color: '#334155' }
+          },
+          y1: {
+            type: 'linear',
+            position: 'right',
+            reverse: true,
+            title: { display: true, text: 'Lluvia (mm/h)', color: '#38bdf8' },
+            ticks: { color: '#94a3b8' },
+            grid: { drawOnChartArea: false }
+          }
+        },
+        plugins: {
+          legend: { labels: { color: '#f8fafc' } }
+        }
+      }
+    });
+  }
+
+  // EXPORTAR CSV
+  function exportarCSV() {
+    const b = document.getElementById('solera').value;
+    const Qp = document.getElementById('kpiQp').innerText;
+    const Qmax = document.getElementById('kpiQmax').innerText;
+    const y = document.getElementById('kpiTirante').innerText;
+
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Parametro,Valor\n";
+    csvContent += `Ancho de Solera b (m),${b}\n`;
+    csvContent += `Caudal Pico Afluente,${Qp}\n`;
+    csvContent += `Capacidad Maxima Canal,${Qmax}\n`;
+    csvContent += `Tirante Alcanzado,${y}\n`;
+
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `reporte_hidraulico_solera_${b}m.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  // EVENT LISTENERS EN TIEMPO REAL
+  const inputs = document.querySelectorAll('input, select');
+  inputs.forEach(input => {
+    input.addEventListener('input', calcular);
+  });
+
+  // SERVICE WORKER INLINE PARA PWA OFFLINE
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      const swCode = `
+        const CACHE_NAME = 'simulador-solera-v1';
+        self.addEventListener('install', e => {
+          e.waitUntil(caches.open(CACHE_NAME).then(c => c.addAll(['./'])));
+        });
+        self.addEventListener('fetch', e => {
+          e.respondWith(caches.match(e.request).then(res => res || fetch(e.request)));
+        });
+      `;
+      const blob = new Blob([swCode], { type: 'text/javascript' });
+      const blobURL = URL.createObjectURL(blob);
+      navigator.serviceWorker.register(blobURL).catch(err => console.log('SW error:', err));
+    });
+  }
+
+  let deferredPrompt;
+  const installBtn = document.getElementById('pwaInstallBtn');
+
+  window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    installBtn.style.display = 'block';
+  });
+
+  installBtn.addEventListener('click', () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then((choiceResult) => {
+        if (choiceResult.outcome === 'accepted') {
+          installBtn.style.display = 'none';
+        }
+        deferredPrompt = null;
+      });
+    }
+  });
+
+  window.onload = calcular;
+  window.onresize = calcular;
+</script>
+
+</body>
+</html>
